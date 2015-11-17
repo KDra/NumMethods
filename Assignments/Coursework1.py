@@ -4,8 +4,9 @@ Created on Sat Nov 14 14:17:46 2015
 
 @author: kostas
 """
+from __future__ import division
 import numpy as np
-from numpy import cos, sin, exp
+from numpy import cos, sin, exp, log
 from matplotlib import pyplot as plt
 from numba import jit
 
@@ -35,11 +36,17 @@ def rk3(A, bvector, y0, interval, N):
 
 
 @jit
-def bvector(x):
+def bvector1(x):
     """
     
     """
-    #b = np.zeros(len(y0))
+    return np.zeros(len(y0))
+
+@jit
+def bvector2(x):
+    """
+    
+    """
     b1 = cos(10*x) - 10*sin(10*x)
     b2 = 199*cos(10*x) - 10*sin(10*x)
     b3 = 208*cos(10*x) + 10**4*sin(10*x)
@@ -81,27 +88,45 @@ def Yexact2(x):
 
 
 if __name__ == "__main__":
-    """
+    
     A = np.array([[-1000, 0],
                   [1000, -1]])
     interval=np.array([0, 0.1])
-    y0 = np.array([0, 1])
+    y0 = np.array([1, 0])
     """
     A = np.array([[-1, 0, 0],
                   [-99, -100, 0],
                   [10098, 9900, -10000]])
     interval=np.array([0, 1])
-    y0 = np.array([0, 1, 0])
+    y0 = np.array([0, 1, 0])"""
     err = np.zeros(15)
     erri = np.zeros(15)
     h = np.zeros(15)
     for k in np.arange(1, 16):
-        N = 400*(k+1)
-        h[k-1] = (interval[1] - interval[0])/N
+        N = 40*(k)
+        h[k-1] = (interval[1] - interval[0])/float(N)
         x, y = rk3(A[:], bvector, y0[:], interval[:], N)
         xi, yi = dirk3(A[:], bvector, y0[:], interval[:], N)
-        y_exact = Yexact2(x)
+        y_exact = Yexact1(x)
         err[k-1] = h[k-1] * np.sum(np.abs((y[1, 1:] - y_exact[1, 1:])/y_exact[1, 1:]))
         erri[k-1] = h[k-1] * np.sum(np.abs((yi[1, 1:] - y_exact[1, 1:])/y_exact[1, 1:]))
-    plt.plot(h, err)
-    #plt.plot(h, erri)
+    for k in np.arange(1, 16):
+        N = 400*(k+1)
+        h[k-1] = (interval[1] - interval[0])/float(N)
+        x, y = rk3(A[:], bvector, y0[:], interval[:], N)
+        xi, yi = dirk3(A[:], bvector, y0[:], interval[:], N)
+        y_exact = Yexact1(x)
+        err[k-1] = h[k-1] * np.sum(np.abs((y[1, 1:] - y_exact[1, 1:])/y_exact[1, 1:]))
+        erri[k-1] = h[k-1] * np.sum(np.abs((yi[1, 1:] - y_exact[1, 1:])/y_exact[1, 1:]))
+    
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax2 = fig.add_subplot(111)
+    ax1.plot(h, err)
+    ax2.plot(h, erri)
+    ax1.set_title("RK3")
+    ax2.set_title("DIRK3")
+    ax1.set_xlabel("h")
+    ax2.set_xlabel("h")
+    ax1.set_ylabel(r"\norm{Error}")
+    ax2.set_ylabel(r"\norm{Error}")
