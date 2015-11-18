@@ -2,15 +2,19 @@
 """
 Set of functions that solve initial value problems using two 3 step Runge-Kutta
 methods (explicit and implicit). Two test cases are provided with a moderately 
-stiff and a stiff problem.
+stiff and a stiff problem. In the stiff-problem results are produced using only the
+Diagonally Implicit RK3 method. The relative error does not vary with the spacing
+between the evauluation points 'x' in this case and it is of order 1. The sxplicit
+RK3 method fails for N<3200 and it produces values similar to DIRK3 for larger values.
+Code written for python 3.5
 
 Created on Sat Nov 14 2015
 
 @author: Konstantinos Drakopoulos
 """
-from __future__ import division
+#from __future__ import division
 import numpy as np
-from numpy import cos, sin, exp, log
+from numpy import cos, sin, exp, log10
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 rcParams['font.family'] = 'serif'
@@ -43,7 +47,7 @@ def rk3(A, bvector, y0, interval, N):
                 Contains the results of RK evaluations
     """
     # Assertions to check inputs
-    assert type(A) == np.ndarray, "Ensure A has been defined as a numpy array."
+    assert type(A) and type(y0) == np.ndarray, "Ensure A has been defined as a numpy array."
     assert type(N) == int or np.int64, "Ensure N is an integer."
     assert N > 1, "N must be larger than 0"
     assert np.shape(A) == np.shape(A.T),\
@@ -55,22 +59,21 @@ def rk3(A, bvector, y0, interval, N):
     assert len(interval)==2, "Ensure that the interval has an upper and lower bound"
     # Prealocate vectors
     x = np.linspace(interval[0], interval[1], N+1)
-    h = (interval[1] - interval[0])/N
+    h = (interval[1] - interval[0])/float(N)
     y = np.zeros((len(y0), N+1))
-    y[:,0] = y0
+    y[:,0] = y0[:]
     # Initialise the RK method with predictor corrector steps
     for i in np.arange(len(x)-1):
         y1 = y[:, i] + h * (np.dot(A, y[:, i]) + bvector(x[i]))
         y2 = 0.75*y[:, i] + 0.25*y1 + 0.25*h * (np.dot(A, y1) + bvector(x[i+1]))
-        y[:, i+1] = 1/3*y[:, i] + 2/3*y2 + 2/3*h * (np.dot(A, y2) + bvector(x[i+1]))
+        y[:, i+1] = float(1/3)*y[:, i] + float(2/3)*y2 + float(2/3)*h * (np.dot(A, y2) + bvector(x[i+1]))
     return x, y
 
 
 #@jit
 def bvector1(x):
     """
-    Returns a vector of zeros using the size of the system for problem 1:
-    moderatelly stiff case
+    Returns a size 2 vector of zeros for problem 1: moderatelly stiff case
     """
     return np.zeros(2)
 
@@ -159,25 +162,50 @@ if __name__ == "__main__":
         N = 40*(k)
         h_1[k-1] = (interval_1[1] - interval_1[0])/float(N)
         x_1, y_1 = rk3(A_1, bvector1, y0_1, interval_1, N)
-        xi_1, yi_1 = dirk3(A_1, bvector1, y0_1, interval_1, N)
+        x_1, yi_1 = dirk3(A_1, bvector1, y0_1, interval_1, N)
         y_exact_1 = Yexact1(x_1)
         err_1[k-1] = h_1[k-1] * np.sum(np.abs((y_1[1, 1:] - y_exact_1[1, 1:])/y_exact_1[1, 1:]))
         erri_1[k-1] = h_1[k-1] * np.sum(np.abs((yi_1[1, 1:] - y_exact_1[1, 1:])/y_exact_1[1, 1:]))
     # Outputs and plots
-    a1 = np.polyfit(log(h_1), log(err_1), 1)[0]
-    a2 = np.polyfit(log(h_1), log(erri_1), 1)[0]
-    print("The RK3 method has convergence of order {} and the DIRK3 method convergence of order {}".format(a1, a2))
+    a1 = np.polyfit(log10(h_1[1:]), log10(err_1[1:]), 1)
+    ai1 = np.polyfit(log10(h_1), log10(erri_1), 1)
+    print("Moderatelly-stiff problem: The RK3 method has convergence of order\
+    {} and the DIRK3 method convergence of order {}".format(a1[0], ai1[0]))
     fig = plt.figure()
     ax1 = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
-    ax1.loglog(h_1, err_1)
-    ax2.loglog(h_1, erri_1)
-    ax1.set_title("RK3")
-    ax2.set_title("DIRK3")
-    ax1.set_xlabel("h")
-    ax2.set_xlabel("h")
-    ax1.set_ylabel('|Error|')
-    ax2.set_ylabel('|Error|')
+    ax1.semilogy(x_1, y_1[0, :], label='RK3')
+    ax1.semilogy(x_1, yi_1[0, :], label='DIRK3')
+    ax2.plot(x_1, y_1[1, :], label='RK3')
+    ax2.plot(x_1, yi_1[1, :], label='DIRK3')
+    ax1.set_title("y1 vs x")
+    ax2.set_title("y2 vs x")
+    ax1.set_xlabel("x")
+    ax2.set_xlabel("x")
+    ax1.set_ylabel('y1')
+    ax2.set_ylabel('y2')
+    ax1.legend()
+    ax2.legend()
+    # Convergence
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.loglog(h_1, err_1, label='Computed', marker='.')
+    fit = (h_1**3) * (10**(a1[1]))
+    ax.loglog(h_1, fit, label=r'10^3 curve')
+    ax.legend()
+    ax.set_title("Convergence of Runge-Kutta 3 Explicit")
+    ax.set_xlabel("h")
+    ax.set_ylabel(r'||Error||_1')
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.loglog(h_1, erri_1, label='Convergence')
+    fit = (h_1**ai1[0]) * (10**(ai1[1]))
+    ax.loglog(h_1, fit, label=r'10^3 curve')
+    ax.legend()
+    ax.set_title("Convergence of Runge-Kutta 3 Implicit")
+    ax.set_xlabel("h")
+    ax.set_ylabel(r'||Error||_1')
+    
     #Problem 2: stiff
     A_2 = np.array([[-1, 0, 0],
                   [-99, -100, 0],
@@ -195,14 +223,39 @@ if __name__ == "__main__":
         y_exact_2 = Yexact2(x_2)
         err_2[k-1] = h_2[k-1] * np.sum(np.abs((y_2[2, 1:] - y_exact_2[2, 1:])/y_exact_2[2, 1:]))
         erri_2[k-1] = h_2[k-1] * np.sum(np.abs((yi_2[2, 1:] - y_exact_2[2, 1:])/y_exact_2[2, 1:]))
+    # Outputs and plots
+    a2 = np.polyfit(log10(h_2), log10(err_2), 1)
+    ai2 = np.polyfit(log10(h_2), log10(erri_2), 1)
+    print("Stiff problem: The RK3 method has convergence of order {} and the\
+    DIRK3 method convergence of order {}".format(a2[0], ai2[0]))
     fig = plt.figure()
-    ax1 = fig.add_subplot(121)
-    ax2 = fig.add_subplot(122)
-    ax1.loglog(h_1, err_1)
-    ax2.loglog(h_1, erri_1)
-    ax1.set_title("RK3")
-    ax2.set_title("DIRK3")
-    ax1.set_xlabel("h")
-    ax2.set_xlabel("h")
-    ax1.set_ylabel('|Error|')
-    ax2.set_ylabel('|Error|')
+    ax1 = fig.add_subplot(131)
+    ax2 = fig.add_subplot(132)
+    ax3 = fig.add_subplot(133)
+    ax1.plot(x_2, y_2[0, :], label='RK3', marker='.')
+    ax1.plot(x_2, yi_2[0, :], label='DIRK3', marker='x')
+    ax2.plot(x_2, y_2[1, :], label='RK3', marker='.')
+    ax2.plot(x_2, yi_2[1, :], label='DIRK3', marker='x')
+    ax3.plot(x_2, y_2[2, :], label='RK3', marker='.')
+    ax3.plot(x_2, yi_2[2, :], label='DIRK3', marker='x')
+    ax1.set_title("y1 vs x")
+    ax2.set_title("y2 vs x")
+    ax3.set_title("y3 vs x")
+    ax1.set_xlabel("x")
+    ax2.set_xlabel("x")
+    ax2.set_xlabel("x")
+    ax1.set_ylabel('y1')
+    ax2.set_ylabel('y2')
+    ax3.set_ylabel('y2')
+    ax1.legend()
+    ax2.legend()
+    ax3.legend()
+    # Convergence. The explicit method fails for low values of N. The implicit method
+    # has a constant error independent of N
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.loglog(h_2, erri_2, label='Convergence')
+    ax.legend()
+    ax.set_title("Convergence of Runge-Kutta 3 Implicit")
+    ax.set_xlabel("h")
+    ax.set_ylabel(r'||Error||_1')
