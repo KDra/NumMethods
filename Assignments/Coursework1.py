@@ -77,7 +77,7 @@ def bvector1(x):
     """
     return np.zeros(2)
 
-@jit
+#@jit
 def bvector2(x):
     """
     Returns a vector of different function evaluations of 'x' of size (3,) for
@@ -88,7 +88,7 @@ def bvector2(x):
     b3 = 208*cos(10*x) + 10**4*sin(10*x)
     return np.array([b1, b2, b3])
 
-@jit
+#@jit
 def dirk3(A, bvector, y0, interval, N):
     """
     Function that returns a vector 'x' containing the points at which the 
@@ -133,14 +133,14 @@ def dirk3(A, bvector, y0, interval, N):
     return x, y
 
 
-@jit
+#@jit
 def Yexact1(x):
     """Returns the exat solutions for problem 1 moderatelly stiff"""
     y1 = exp(-1000 * x)
     y2 = 1000/999 * (exp(-x) - y1)
     return np.array([y1, y2])
 
-@jit
+#@jit
 def Yexact2(x):
     """Returns the exact solutions for problem 2: stiff case"""
     y1 = cos(10*x) - exp(-x)
