@@ -56,7 +56,7 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
         phiL = np.ones_like(thL) * phiL
     assert thL.ndim == 1,\
     "Theta must be a vector"
-    N = 50
+    N = 5
     h = L/float(N)
     s = np.linspace(0,L,N)
     x = np.zeros((len(thL),N))
@@ -75,14 +75,15 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
         x_start = R * cos(thL[i]) * cos(phiL[i])
         y_start = -R * cos(thL[i]) * sin(phiL[i])
         z_start = R * sin(thL[i])
-        print thetas[:, 0]
+        #print thetas[:, 0]
         #xfun = lambda s: cos(thetas[:, 0]) * cos(phi) + fx * sin(phi)
         #print xfun(s)
         #yfun = lambda s: -cos(thetas[:, 0]) * sin(phi) + fx * cos(phi)
         #zfun = lambda s: sin(thetas[:, 0])
-        x[i, :] = odeint(dxds, x_start, thetas[:, 0][::-1]).reshape((N,))
-        y[i, :] = odeint(dyds, y_start, thetas[:, 0]).reshape((N,))
-        z[i, :] = odeint(dzds, z_start, thetas[:, 0]).reshape((N,))
+        print odeint(dxds, L, thetas[:, 0]).reshape((N,))
+        x[i, :] = x_start + L*odeint(dxds, 0, thetas[:, 0][::-1]).reshape((N,))
+        y[i, :] = y_start + L*odeint(dyds, 0, thetas[:, 0][::-1]).reshape((N,))
+        z[i, :] = z_start + L*odeint(dzds, 0, thetas[:, 0][::-1]).reshape((N,))
     return (x, y, z)
 
 
@@ -91,9 +92,9 @@ if __name__ == "__main__":
     L = 4.0
     fx = 0.0
     phi = 0.0
-    hairs = 3
+    hairs = 5
     fg = 0.2
-    thL = np.linspace(-pi/2.0, pi/2.0, hairs)
+    thL = np.linspace(0, pi, hairs)
     s = np.linspace(0, L, 100)[::-1]
     x,y,z = hair_pos(R, L, fx, thL)
     fig = plt.figure()
