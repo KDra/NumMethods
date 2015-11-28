@@ -6,16 +6,98 @@ Created on Sat Nov 14 14:17:46 2015
 """
 from __future__ import division
 import numpy as np
-from numpy import cos, sin, exp, log
+from numpy import cos, sin, exp, log, pi
+from scipy.integrate import odeint, quad
+from scipy.optimize import brentq
 from matplotlib import pyplot as plt
 from numba import jit
 
-def hair_pos(R, L, fx, thL, phiL=0):
-    if not phiL == 0:
+from IPython.display import display, Math, Latex
+from matplotlib import animation
+from JSAnimation import IPython_display
+
+from matplotlib import rcParams
+rcParams['font.family'] = 'serif'
+rcParams['font.size'] = 16
+rcParams['figure.figsize'] = (12,6)
+
+def d8ds(theta, s, phi, fx, fg=0.2):
+    assert type(theta) == np.ndarray,\
+    "Theta should be a numpy array"
+    assert theta.ndim == 1,\
+    "Theta should be a vector"
+    assert type(s) and type(phi) and type(fx) == float,\
+    "s, phi, fg and fx should be floats"
+    
+    d8_ds = np.zeros_like(theta)
+    d8_ds[0] = theta[1]
+    d8_ds[1] = s*fg*cos(theta[0]) + s*fx*cos(phi)*sin(theta[0])
+    return d8_ds
+
+
+def shoot(z0, s, theta, phi, fx, fg=0.2):
+    #assert type(d8ds) == function,\
+    #"d8ds (the derivative of theta with respect to s) must be a function"
+    T8 = np.array([z0, 0.0])
+    minz = odeint(d8ds, T8, s, args=(phi, fx, fg))
+    #print z
+    return minz[-1, 0] - theta
+
+
+def hair_pos(R, L, fx, thL, phiL=[0.0]):
+    thL = np.array(thL)
+    if len(phiL) > 1:
+        phiL = np.array(phiL)
         assert len(thL) == len(phiL),\
         "Phi and Theta must be of equal size"
-        assert np.shape(phiL) == (1,),\
+        assert phiL.ndim == 1,\
         "Phi must be a vector"
-    assert np.shape(thL) == (1,),\
+    else:
+        phiL = np.ones_like(thL) * phiL
+    assert thL.ndim == 1,\
     "Theta must be a vector"
+    N = 50
+    h = L/float(N)
+    s = np.linspace(0,L,N)
+    x = np.zeros((len(thL),N))
+    y = np.zeros((len(thL),N))
+    z = np.zeros((len(thL),N))
+    def dxds(theta, phi):
+        return cos(theta) * cos(phi) + fx * sin(phi)
+    def dyds(theta, phi):
+        return -cos(theta) * sin(phi) + fx * cos(phi)
+    def dzds(theta, phi):
+        return sin(theta)
     
+    for i in np.arange(len(thL)):
+        msolve = brentq(shoot, -2*pi, 2*pi, args=(s, thL[i], phiL[i], fx, fg))
+        thetas = odeint(d8ds, np.array([msolve, thL[i]]), s, args=(phiL[i], fx, fg))
+        x_start = R * cos(thL[i]) * cos(phiL[i])
+        y_start = -R * cos(thL[i]) * sin(phiL[i])
+        z_start = R * sin(thL[i])
+        print thetas[:, 0]
+        #xfun = lambda s: cos(thetas[:, 0]) * cos(phi) + fx * sin(phi)
+        #print xfun(s)
+        #yfun = lambda s: -cos(thetas[:, 0]) * sin(phi) + fx * cos(phi)
+        #zfun = lambda s: sin(thetas[:, 0])
+        x[i, :] = odeint(dxds, x_start, thetas[:, 0][::-1]).reshape((N,))
+        y[i, :] = odeint(dyds, y_start, thetas[:, 0]).reshape((N,))
+        z[i, :] = odeint(dzds, z_start, thetas[:, 0]).reshape((N,))
+    return (x, y, z)
+
+
+if __name__ == "__main__":
+    R = 10.0
+    L = 4.0
+    fx = 0.0
+    phi = 0.0
+    hairs = 3
+    fg = 0.2
+    thL = np.linspace(-pi/2.0, pi/2.0, hairs)
+    s = np.linspace(0, L, 100)[::-1]
+    x,y,z = hair_pos(R, L, fx, thL)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for i in np.arange(hairs):
+        ax.plot(x[i, :], y[i, :])
+        
