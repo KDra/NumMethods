@@ -6,7 +6,7 @@ Created on Sat Nov 14 14:17:46 2015
 """
 from __future__ import division
 import numpy as np
-from numpy import cos, sin, exp, log, pi
+from numpy import cos, sin, sqrt, pi
 from scipy.integrate import odeint, quad
 from scipy.optimize import brentq
 from matplotlib import pyplot as plt
@@ -19,7 +19,7 @@ from JSAnimation import IPython_display
 from matplotlib import rcParams
 rcParams['font.family'] = 'serif'
 rcParams['font.size'] = 16
-rcParams['figure.figsize'] = (12,6)
+rcParams['figure.figsize'] = (10,8)
 
 def d8ds(theta, s, phi, fx, fg=0.2):
     assert type(theta) == np.ndarray,\
@@ -56,7 +56,7 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
         phiL = np.ones_like(thL) * phiL
     assert thL.ndim == 1,\
     "Theta must be a vector"
-    N = 50
+    N = 5
     h = L/float(N)
     s = np.linspace(0,L,N)
     x = np.zeros((len(thL),N))
@@ -71,18 +71,24 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
     
     for i in np.arange(len(thL)):
         msolve = brentq(shoot, -2*pi, 2*pi, args=(s, thL[i], phiL[i], fx, fg))
-        thetas = odeint(d8ds, np.array([msolve, thL[i]]), s, args=(phiL[i], fx, fg))
+        print msolve, thL[i], R
+        thetas = odeint(d8ds, np.array([msolve, 0.0]), s, args=(phiL[i], fx, fg))
         x_start = R * cos(thL[i]) * cos(phiL[i])
         y_start = -R * cos(thL[i]) * sin(phiL[i])
         z_start = R * sin(thL[i])
         print thetas[:, 0]
+        print x_start, y_start, z_start
         #xfun = lambda s: cos(thetas[:, 0]) * cos(phi) + fx * sin(phi)
         #print xfun(s)
         #yfun = lambda s: -cos(thetas[:, 0]) * sin(phi) + fx * cos(phi)
         #zfun = lambda s: sin(thetas[:, 0])
-        x[i, :] = odeint(dxds, x_start, thetas[:, 0][::-1]).reshape((N,))
-        y[i, :] = odeint(dyds, y_start, thetas[:, 0]).reshape((N,))
-        z[i, :] = odeint(dzds, z_start, thetas[:, 0]).reshape((N,))
+        x[i, :] = x_start
+        y[i, :] = y_start
+        z[i, :] = z_start
+        for j in np.arange(1, N):
+            x[i, j] = x[i, j-1] + h * dxds(thetas[-j, 0], phiL[i])
+            y[i, j] = y[i, j-1] + h * dyds(thetas[-j, 0], phiL[i])
+            z[i, j] = z[i, j-1] + h * dzds(thetas[-j, 0], phiL[i])
     return (x, y, z)
 
 
@@ -93,11 +99,16 @@ if __name__ == "__main__":
     phi = 0.0
     hairs = 3
     fg = 0.2
-    thL = np.linspace(-pi/2.0, pi/2.0, hairs)
+    thL = np.linspace(0, pi, hairs)
     s = np.linspace(0, L, 100)[::-1]
+    c = np.linspace(-R, R)
     x,y,z = hair_pos(R, L, fx, thL)
     fig = plt.figure()
     ax = fig.add_subplot(111)
+    ax.set_xlim([-16, 16])
+    ax.set_ylim([-10, 16])
+    circ = plt.Circle((0, 0), radius=R, color='b', fill=False)
+    ax.add_patch(circ)
     for i in np.arange(hairs):
         ax.plot(x[i, :], y[i, :])
         
