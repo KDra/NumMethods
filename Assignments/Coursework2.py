@@ -21,6 +21,7 @@ rcParams['font.family'] = 'serif'
 rcParams['font.size'] = 16
 rcParams['figure.figsize'] = (10,8)
 
+@jit
 def d8ds(theta, s, phi, fx, fg=0.2):
     assert type(theta) == np.ndarray,\
     "Theta should be a numpy array"
@@ -34,7 +35,7 @@ def d8ds(theta, s, phi, fx, fg=0.2):
     d8_ds[1] = s*fg*cos(theta[0]) + s*fx*cos(phi)*sin(theta[0])
     return d8_ds
 
-
+@jit
 def shoot(z0, s, theta, phi, fx, fg=0.2):
     #assert type(d8ds) == function,\
     #"d8ds (the derivative of theta with respect to s) must be a function"
@@ -56,7 +57,7 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
         phiL = np.ones_like(thL) * phiL
     assert thL.ndim == 1,\
     "Theta must be a vector"
-    N = 5
+    N = 50
     h = L/float(N)
     s = np.linspace(0,L,N)
     x = np.zeros((len(thL),N))
@@ -70,14 +71,14 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
         return sin(theta)
     
     for i in np.arange(len(thL)):
-        msolve = brentq(shoot, -2*pi, 2*pi, args=(s, thL[i], phiL[i], fx, fg))
-        print msolve, thL[i], R
+        msolve = brentq(shoot, thL[i]-2*pi,thL[i]+2*pi, args=(s, thL[i], phiL[i], fx, fg))
+        #print msolve, thL[i], R
         thetas = odeint(d8ds, np.array([msolve, 0.0]), s, args=(phiL[i], fx, fg))
         x_start = R * cos(thL[i]) * cos(phiL[i])
         y_start = -R * cos(thL[i]) * sin(phiL[i])
         z_start = R * sin(thL[i])
-        print thetas[:, 0]
-        print x_start, y_start, z_start
+        #print thetas[:, 0]
+        #print x_start, y_start, z_start
         #xfun = lambda s: cos(thetas[:, 0]) * cos(phi) + fx * sin(phi)
         #print xfun(s)
         #yfun = lambda s: -cos(thetas[:, 0]) * sin(phi) + fx * cos(phi)
@@ -95,9 +96,9 @@ def hair_pos(R, L, fx, thL, phiL=[0.0]):
 if __name__ == "__main__":
     R = 10.0
     L = 4.0
-    fx = 0.0
+    fx = 0.2
     phi = 0.0
-    hairs = 3
+    hairs = 100
     fg = 0.2
     thL = np.linspace(0, pi, hairs)
     s = np.linspace(0, L, 100)[::-1]
@@ -110,5 +111,5 @@ if __name__ == "__main__":
     circ = plt.Circle((0, 0), radius=R, color='b', fill=False)
     ax.add_patch(circ)
     for i in np.arange(hairs):
-        ax.plot(x[i, :], y[i, :])
+        ax.plot(x[i, :], z[i, :])
         
